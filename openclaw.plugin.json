@@ -1,0 +1,30 @@
+{
+  "id": "snap-context",
+  "kind": "tool",
+  "name": "SnapContext",
+  "description": "Compaction-proof topic snapshots for OpenClaw. No API key, no cloud — just structured markdown.",
+  "version": "0.1.0",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "contextDir": {
+        "type": "string",
+        "description": "Directory for context files. Defaults to <workspace>/memory"
+      },
+      "maxHistoryLines": {
+        "type": "number",
+        "description": "Max lines in History section before pruning oldest. Default: 30"
+      },
+      "maxDecisions": {
+        "type": "number",
+        "description": "Max entries in Key Decisions before pruning oldest. Default: 20"
+      }
+    }
+  },
+  "uiHints": {
+    "contextDir": { "label": "Context Directory", "placeholder": "./memory" },
+    "maxHistoryLines": { "label": "Max History Lines", "placeholder": "30" },
+    "maxDecisions": { "label": "Max Key Decisions", "placeholder": "20" }
+  }
+}
