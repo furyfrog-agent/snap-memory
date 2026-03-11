@@ -130,6 +130,7 @@ function saveSessionMap(snapDir: string, map: SessionTopicMap): void {
 }
 
 function bindSessionToTopic(snapDir: string, sessionKey: string, topic: string): void {
+  // Re-read map right before write to minimize race window
   const map = loadSessionMap(snapDir);
   map[sessionKey] = topic;
   saveSessionMap(snapDir, map);
@@ -308,9 +309,23 @@ export default function register(api: any) {
         if (files.length === 0) {
           return { content: [{ type: "text", text: "No context snap files found." }] };
         }
-        const names = files.map((f: string) => basename(f));
+        // Show file names with session binding info
+        const sessionMap = loadSessionMap(snapDir);
+        const reverseMap: Record<string, string[]> = {};
+        for (const [sk, t] of Object.entries(sessionMap)) {
+          if (!reverseMap[t]) reverseMap[t] = [];
+          reverseMap[t].push(sk);
+        }
+
+        const lines = files.map((f: string) => {
+          const name = basename(f);
+          const topicName = name.replace(/^context-/, "").replace(/\.md$/, "");
+          const sessions = reverseMap[topicName];
+          const suffix = sessions ? ` (bound: ${sessions.length} session${sessions.length > 1 ? "s" : ""})` : "";
+          return `- ${name}${suffix}`;
+        });
         return {
-          content: [{ type: "text", text: `Context snaps:\n${names.map((n: string) => `- ${n}`).join("\n")}` }],
+          content: [{ type: "text", text: `Context snaps:\n${lines.join("\n")}` }],
         };
       }
 
