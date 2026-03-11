@@ -139,6 +139,19 @@ function getTopicForSession(snapDir: string, sessionKey: string): string | undef
   return loadSessionMap(snapDir)[sessionKey];
 }
 
+// ── Auto-topic: derive topic name from sessionKey ───────────────────────
+
+function sessionKeyToAutoTopic(sessionKey: string): string {
+  // sessionKey format: "agent:main:discord:1480754631297597611"
+  // → extract meaningful parts, sanitize for filename
+  return sessionKey
+    .replace(/[^a-zA-Z0-9_:-]/g, "-")
+    .replace(/:/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80); // keep filenames reasonable
+}
+
 // ── Plugin registration ─────────────────────────────────────────────────
 
 export default function register(api: any) {
@@ -150,7 +163,15 @@ export default function register(api: any) {
     "before_prompt_build",
     (event: { prompt: string; messages: unknown[] }, ctx: { sessionKey?: string }) => {
       if (!ctx.sessionKey) return;
-      const topic = getTopicForSession(snapDir, ctx.sessionKey);
+
+      // Try explicit binding first, then auto-topic
+      let topic = getTopicForSession(snapDir, ctx.sessionKey);
+      if (!topic) {
+        // Check if an auto-topic file exists for this session
+        const autoTopic = sessionKeyToAutoTopic(ctx.sessionKey);
+        const autoPath = join(snapDir, `context-${autoTopic}.md`);
+        if (existsSync(autoPath)) topic = autoTopic;
+      }
       if (!topic) return;
 
       const filePath = join(snapDir, `context-${topic}.md`);
@@ -172,8 +193,14 @@ export default function register(api: any) {
     "before_compaction",
     async (event: { messageCount: number; messages?: unknown[]; sessionFile?: string }, ctx: { sessionKey?: string }) => {
       if (!ctx.sessionKey) return;
-      const topic = getTopicForSession(snapDir, ctx.sessionKey);
-      if (!topic) return;
+
+      // Resolve topic: explicit binding → auto-topic (auto-create if neither exists)
+      let topic = getTopicForSession(snapDir, ctx.sessionKey);
+      if (!topic) {
+        topic = sessionKeyToAutoTopic(ctx.sessionKey);
+        // Auto-bind for future lookups
+        bindSessionToTopic(snapDir, ctx.sessionKey, topic);
+      }
 
       const filePath = join(snapDir, `context-${topic}.md`);
       const today = new Date().toISOString().slice(0, 10);
@@ -183,7 +210,12 @@ export default function register(api: any) {
       if (existsSync(filePath)) {
         snap = parseSnap(readFileSync(filePath, "utf-8"));
       } else {
-        snap = { meta: { created: today }, currentStatus: "", keyDecisions: [], history: [] };
+        snap = {
+          meta: { created: today, session: ctx.sessionKey },
+          currentStatus: "(auto-created by compaction)",
+          keyDecisions: [],
+          history: [],
+        };
       }
 
       snap.history.push(`${today}: Auto-saved before compaction (${event.messageCount} messages)`);
@@ -200,8 +232,9 @@ export default function register(api: any) {
     "after_compaction",
     async (event: { messageCount: number; compactedCount: number }, ctx: { sessionKey?: string }) => {
       if (!ctx.sessionKey) return;
+
       const topic = getTopicForSession(snapDir, ctx.sessionKey);
-      if (!topic) return;
+      if (!topic) return; // before_compaction should have created the binding
 
       const filePath = join(snapDir, `context-${topic}.md`);
       if (!existsSync(filePath)) return;
