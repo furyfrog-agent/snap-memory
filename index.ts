@@ -108,11 +108,116 @@ function listSnapFiles(dir: string): string[] {
     .map((f: string) => join(dir, f));
 }
 
+// ── Session → topic mapping ─────────────────────────────────────────────
+
+const SESSION_TOPIC_MAP_FILE = "context-session-map.json";
+
+type SessionTopicMap = Record<string, string>; // sessionKey → topic
+
+function loadSessionMap(snapDir: string): SessionTopicMap {
+  const mapPath = join(snapDir, SESSION_TOPIC_MAP_FILE);
+  if (!existsSync(mapPath)) return {};
+  try {
+    return JSON.parse(readFileSync(mapPath, "utf-8"));
+  } catch {
+    return {};
+  }
+}
+
+function saveSessionMap(snapDir: string, map: SessionTopicMap): void {
+  const mapPath = join(snapDir, SESSION_TOPIC_MAP_FILE);
+  writeFileSync(mapPath, JSON.stringify(map, null, 2), "utf-8");
+}
+
+function bindSessionToTopic(snapDir: string, sessionKey: string, topic: string): void {
+  const map = loadSessionMap(snapDir);
+  map[sessionKey] = topic;
+  saveSessionMap(snapDir, map);
+}
+
+function getTopicForSession(snapDir: string, sessionKey: string): string | undefined {
+  return loadSessionMap(snapDir)[sessionKey];
+}
+
 // ── Plugin registration ─────────────────────────────────────────────────
 
 export default function register(api: any) {
   const pluginConfig: SnapConfig = api.config?.plugins?.entries?.["snap-context"]?.config ?? {};
   const snapDir = resolveSnapDir(pluginConfig, api);
+
+  // ── Hook: before_prompt_build — auto-inject context ─────────────────
+  api.on(
+    "before_prompt_build",
+    (event: { prompt: string; messages: unknown[] }, ctx: { sessionKey?: string }) => {
+      if (!ctx.sessionKey) return;
+      const topic = getTopicForSession(snapDir, ctx.sessionKey);
+      if (!topic) return;
+
+      const filePath = join(snapDir, `context-${topic}.md`);
+      if (!existsSync(filePath)) return;
+
+      const content = readFileSync(filePath, "utf-8");
+      if (!content.trim()) return;
+
+      api.logger?.info?.(`[snap-context] Injecting context for topic: ${topic}`);
+      return {
+        appendSystemContext: `\n\n## Topic Context (auto-injected by snap-context)\n${content}`,
+      };
+    },
+    { priority: 5 },
+  );
+
+  // ── Hook: before_compaction — auto-save before compaction ───────────
+  api.on(
+    "before_compaction",
+    async (event: { messageCount: number; messages?: unknown[]; sessionFile?: string }, ctx: { sessionKey?: string }) => {
+      if (!ctx.sessionKey) return;
+      const topic = getTopicForSession(snapDir, ctx.sessionKey);
+      if (!topic) return;
+
+      const filePath = join(snapDir, `context-${topic}.md`);
+      const today = new Date().toISOString().slice(0, 10);
+      const maxHistory = pluginConfig.maxHistoryLines ?? DEFAULT_MAX_HISTORY;
+
+      let snap: SnapData;
+      if (existsSync(filePath)) {
+        snap = parseSnap(readFileSync(filePath, "utf-8"));
+      } else {
+        snap = { meta: { created: today }, currentStatus: "", keyDecisions: [], history: [] };
+      }
+
+      snap.history.push(`${today}: Auto-saved before compaction (${event.messageCount} messages)`);
+      while (snap.history.length > maxHistory) snap.history.shift();
+      snap.meta["updated"] = today;
+
+      writeFileSync(filePath, serializeSnap(topic, snap), "utf-8");
+      api.logger?.info?.(`[snap-context] Auto-saved before compaction: ${topic}`);
+    },
+  );
+
+  // ── Hook: after_compaction — log compaction result ──────────────────
+  api.on(
+    "after_compaction",
+    async (event: { messageCount: number; compactedCount: number }, ctx: { sessionKey?: string }) => {
+      if (!ctx.sessionKey) return;
+      const topic = getTopicForSession(snapDir, ctx.sessionKey);
+      if (!topic) return;
+
+      const filePath = join(snapDir, `context-${topic}.md`);
+      if (!existsSync(filePath)) return;
+
+      const today = new Date().toISOString().slice(0, 10);
+      const maxHistory = pluginConfig.maxHistoryLines ?? DEFAULT_MAX_HISTORY;
+      const snap = parseSnap(readFileSync(filePath, "utf-8"));
+
+      snap.history.push(`${today}: Compaction completed (${event.compactedCount}→${event.messageCount} messages)`);
+      while (snap.history.length > maxHistory) snap.history.shift();
+      snap.meta["updated"] = today;
+
+      writeFileSync(filePath, serializeSnap(topic, snap), "utf-8");
+      api.logger?.info?.(`[snap-context] Logged compaction: ${topic}`);
+    },
+  );
 
   // ── Agent tool: context_snap ────────────────────────────────────────
   api.registerTool({
@@ -204,7 +309,11 @@ export default function register(api: any) {
           };
         }
 
-        if (sessionId) snap.meta["session"] = sessionId;
+        // Auto-bind session → topic for hook matching
+        if (sessionId) {
+          snap.meta["session"] = sessionId;
+          bindSessionToTopic(snapDir, sessionId, topic);
+        }
         if (status) snap.currentStatus = status;
 
         if (decisions && decisions.length > 0) {
