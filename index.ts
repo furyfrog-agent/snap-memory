@@ -191,16 +191,23 @@ export default function register(api: any) {
     { priority: 5 },
   );
 
-  // ── Hook: before_compaction — auto-save for bound sessions ──────────
-  // Only saves for sessions that already have a topic binding.
-  // Does NOT auto-create context files — avoids garbage files for heartbeat/cron/subagent sessions.
+  // ── Hook: before_compaction — auto-save (auto-create if needed) ──────
+  // On first compaction: auto-creates context file + binding for real sessions.
+  // Skips heartbeat/cron/memory triggers to avoid garbage files.
   api.on(
     "before_compaction",
-    async (event: { messageCount: number; messages?: unknown[]; sessionFile?: string }, ctx: { sessionKey?: string }) => {
+    async (event: { messageCount: number; messages?: unknown[]; sessionFile?: string }, ctx: { sessionKey?: string; trigger?: string }) => {
       if (!ctx.sessionKey) return;
+      // Skip non-conversation sessions
+      if (ctx.trigger === "heartbeat" || ctx.trigger === "cron" || ctx.trigger === "memory") return;
 
-      const topic = getTopicForSession(snapDir, ctx.sessionKey);
-      if (!topic) return; // No binding = no auto-save
+      let topic = getTopicForSession(snapDir, ctx.sessionKey);
+      if (!topic) {
+        // First compaction for this session — auto-create binding
+        topic = sessionKeyToAutoTopic(ctx.sessionKey);
+        bindSessionToTopic(snapDir, ctx.sessionKey, topic);
+        api.logger?.info?.(`[snap-context] Auto-created binding: ${ctx.sessionKey} → ${topic}`);
+      }
 
       const filePath = join(snapDir, `context-${topic}.md`);
       const today = new Date().toISOString().slice(0, 10);
