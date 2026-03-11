@@ -158,20 +158,23 @@ export default function register(api: any) {
   const pluginConfig: SnapConfig = api.config?.plugins?.entries?.["snap-context"]?.config ?? {};
   const snapDir = resolveSnapDir(pluginConfig, api);
 
+  // Track last sessionKey per agent run so tool execute() can access it
+  let _lastSessionKey: string | undefined;
+
   // ── Hook: before_prompt_build — auto-inject context ─────────────────
+  // Only injects for sessions that have an explicit topic binding (via checkpoint tool).
+  // Does NOT auto-create bindings — that's the checkpoint tool's job.
   api.on(
     "before_prompt_build",
-    (event: { prompt: string; messages: unknown[] }, ctx: { sessionKey?: string }) => {
-      if (!ctx.sessionKey) return;
+    (event: { prompt: string; messages: unknown[] }, ctx: { sessionKey?: string; trigger?: string }) => {
+      // Capture sessionKey for tool execute() to use
+      if (ctx.sessionKey) _lastSessionKey = ctx.sessionKey;
 
-      // Try explicit binding first, then auto-topic
-      let topic = getTopicForSession(snapDir, ctx.sessionKey);
-      if (!topic) {
-        // Check if an auto-topic file exists for this session
-        const autoTopic = sessionKeyToAutoTopic(ctx.sessionKey);
-        const autoPath = join(snapDir, `context-${autoTopic}.md`);
-        if (existsSync(autoPath)) topic = autoTopic;
-      }
+      if (!ctx.sessionKey) return;
+      // Skip heartbeat/cron — they don't need topic context
+      if (ctx.trigger === "heartbeat" || ctx.trigger === "cron") return;
+
+      const topic = getTopicForSession(snapDir, ctx.sessionKey);
       if (!topic) return;
 
       const filePath = join(snapDir, `context-${topic}.md`);
@@ -188,19 +191,16 @@ export default function register(api: any) {
     { priority: 5 },
   );
 
-  // ── Hook: before_compaction — auto-save before compaction ───────────
+  // ── Hook: before_compaction — auto-save for bound sessions ──────────
+  // Only saves for sessions that already have a topic binding.
+  // Does NOT auto-create context files — avoids garbage files for heartbeat/cron/subagent sessions.
   api.on(
     "before_compaction",
     async (event: { messageCount: number; messages?: unknown[]; sessionFile?: string }, ctx: { sessionKey?: string }) => {
       if (!ctx.sessionKey) return;
 
-      // Resolve topic: explicit binding → auto-topic (auto-create if neither exists)
-      let topic = getTopicForSession(snapDir, ctx.sessionKey);
-      if (!topic) {
-        topic = sessionKeyToAutoTopic(ctx.sessionKey);
-        // Auto-bind for future lookups
-        bindSessionToTopic(snapDir, ctx.sessionKey, topic);
-      }
+      const topic = getTopicForSession(snapDir, ctx.sessionKey);
+      if (!topic) return; // No binding = no auto-save
 
       const filePath = join(snapDir, `context-${topic}.md`);
       const today = new Date().toISOString().slice(0, 10);
@@ -212,7 +212,7 @@ export default function register(api: any) {
       } else {
         snap = {
           meta: { created: today, session: ctx.sessionKey },
-          currentStatus: "(auto-created by compaction)",
+          currentStatus: "",
           keyDecisions: [],
           history: [],
         };
@@ -234,7 +234,7 @@ export default function register(api: any) {
       if (!ctx.sessionKey) return;
 
       const topic = getTopicForSession(snapDir, ctx.sessionKey);
-      if (!topic) return; // before_compaction should have created the binding
+      if (!topic) return;
 
       const filePath = join(snapDir, `context-${topic}.md`);
       if (!existsSync(filePath)) return;
@@ -343,9 +343,11 @@ export default function register(api: any) {
         }
 
         // Auto-bind session → topic for hook matching
-        if (sessionId) {
-          snap.meta["session"] = sessionId;
-          bindSessionToTopic(snapDir, sessionId, topic);
+        // Use explicit sessionId if provided, otherwise use captured sessionKey from last prompt build
+        const effectiveSessionKey = sessionId || _lastSessionKey;
+        if (effectiveSessionKey) {
+          snap.meta["session"] = effectiveSessionKey;
+          bindSessionToTopic(snapDir, effectiveSessionKey, topic);
         }
         if (status) snap.currentStatus = status;
 
