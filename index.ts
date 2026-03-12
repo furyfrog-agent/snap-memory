@@ -159,8 +159,8 @@ export default function register(api: any) {
   const pluginConfig: SnapConfig = api.config?.plugins?.entries?.["snap-context"]?.config ?? {};
   const snapDir = resolveSnapDir(pluginConfig, api);
 
-  // Track last sessionKey per agent run so tool execute() can access it
-  let _lastSessionKey: string | undefined;
+  // Track sessionKey per runId so tool execute() gets the correct one (not a shared global)
+  const _runSessionKeys = new Map<string, string>();
 
   // ── Hook: before_prompt_build — auto-inject context ─────────────────
   // Only injects for sessions that have an explicit topic binding (via checkpoint tool).
@@ -168,9 +168,6 @@ export default function register(api: any) {
   api.on(
     "before_prompt_build",
     (event: { prompt: string; messages: unknown[] }, ctx: { sessionKey?: string; trigger?: string }) => {
-      // Capture sessionKey for tool execute() to use
-      if (ctx.sessionKey) _lastSessionKey = ctx.sessionKey;
-
       if (!ctx.sessionKey) return;
       // Skip heartbeat/cron — they don't need topic context
       if (ctx.trigger === "heartbeat" || ctx.trigger === "cron") return;
@@ -257,6 +254,22 @@ export default function register(api: any) {
 
       writeFileSync(filePath, serializeSnap(topic, snap), "utf-8");
       api.logger?.info?.(`[snap-context] Logged compaction: ${topic}`);
+    },
+  );
+
+  // ── Hook: before_tool_call — capture sessionKey per tool call ────────
+  // This gives us the correct per-session sessionKey (not a shared global)
+  api.on(
+    "before_tool_call",
+    (event: { toolName: string; runId?: string }, ctx: { sessionKey?: string; toolCallId?: string }) => {
+      if (event.toolName === "context_snap" && ctx.sessionKey && ctx.toolCallId) {
+        _runSessionKeys.set(ctx.toolCallId, ctx.sessionKey);
+        // Cleanup old entries to prevent memory leak (keep last 50)
+        if (_runSessionKeys.size > 50) {
+          const firstKey = _runSessionKeys.keys().next().value;
+          if (firstKey) _runSessionKeys.delete(firstKey);
+        }
+      }
     },
   );
 
@@ -365,8 +378,10 @@ export default function register(api: any) {
         }
 
         // Auto-bind session → topic for hook matching
-        // Use explicit sessionId if provided, otherwise use captured sessionKey from last prompt build
-        const effectiveSessionKey = sessionId || _lastSessionKey;
+        // Priority: explicit sessionId > captured from before_tool_call hook
+        const capturedKey = _runSessionKeys.get(_id);
+        if (capturedKey) _runSessionKeys.delete(_id); // cleanup after use
+        const effectiveSessionKey = sessionId || capturedKey;
         if (effectiveSessionKey) {
           snap.meta["session"] = effectiveSessionKey;
           bindSessionToTopic(snapDir, effectiveSessionKey, topic);
