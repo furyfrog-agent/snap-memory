@@ -33,11 +33,11 @@ This is intentional. Unlike full-auto memory systems that capture everything, sn
 ## Install
 
 ```bash
-# Link for local development
-openclaw plugins install -l ./snap-memory
+# From npm (recommended)
+openclaw plugins install snap-memory
 
-# Or copy-install
-openclaw plugins install ./snap-memory
+# Or link locally for development
+openclaw plugins install -l ./snap-memory
 
 # Restart to load
 openclaw gateway restart
@@ -308,7 +308,7 @@ Agent 在关键节点（重要决策、里程碑、状态变更）主动调用 c
 ### 安装
 
 ```bash
-openclaw plugins install -l ./snap-memory
+openclaw plugins install snap-memory
 openclaw gateway restart
 ```
 

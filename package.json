@@ -2,11 +2,27 @@
   "name": "snap-memory",
   "version": "0.1.0",
   "description": "Compaction-proof topic snapshots for OpenClaw. No API key, no cloud, no vector DB.",
+  "keywords": ["openclaw", "plugin", "memory", "context", "compaction", "agent"],
+  "author": "furyfrog-agent",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/furyfrog-agent/snap-memory"
+  },
+  "homepage": "https://github.com/furyfrog-agent/snap-memory#readme",
+  "bugs": {
+    "url": "https://github.com/furyfrog-agent/snap-memory/issues"
+  },
   "openclaw": {
     "extensions": ["./index.ts"]
   },
   "peerDependencies": {
     "openclaw": ">=2026.3.7"
   },
+  "files": [
+    "index.ts",
+    "openclaw.plugin.json",
+    "README.md",
+    "LICENSE"
+  ],
   "license": "MIT"
 }
