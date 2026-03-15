@@ -1,5 +1,5 @@
 {
-  "name": "snap-context",
+  "name": "snap-memory",
   "version": "0.1.0",
   "description": "Compaction-proof topic snapshots for OpenClaw. No API key, no cloud, no vector DB.",
   "openclaw": {

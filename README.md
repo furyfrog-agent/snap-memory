@@ -1,4 +1,4 @@
-# snap-context
+# snap-memory
 
 Compaction-proof topic snapshots for OpenClaw. No API key, no cloud, no vector DB — just structured markdown that keeps your agent on track across sessions.
 
@@ -13,10 +13,10 @@ Compaction-proof topic snapshots for OpenClaw. No API key, no cloud, no vector D
 
 ```bash
 # Link for local development
-openclaw plugins install -l ./snap-context
+openclaw plugins install -l ./snap-memory
 
 # Or copy-install
-openclaw plugins install ./snap-context
+openclaw plugins install ./snap-memory
 ```
 
 Then restart the gateway:
@@ -31,7 +31,7 @@ openclaw gateway restart
 {
   "plugins": {
     "entries": {
-      "snap-context": {
+      "snap-memory": {
         "enabled": true,
         "config": {
           "contextDir": "./memory",
@@ -80,7 +80,7 @@ Three actions:
 
 ## vs other memory plugins
 
-| | snap-context | lossless-claw | mem0/Supermemory |
+| | snap-memory | lossless-claw | mem0/Supermemory |
 |---|---|---|---|
 | Scope | Topic-level snapshots | Full context management | User-level memory |
 | Type | Tool plugin | Context engine plugin | Memory plugin |

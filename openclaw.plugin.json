@@ -1,7 +1,7 @@
 {
-  "id": "snap-context",
+  "id": "snap-memory",
   "kind": "tool",
-  "name": "SnapContext",
+  "name": "Snap Memory",
   "description": "Compaction-proof topic snapshots for OpenClaw. No API key, no cloud — just structured markdown.",
   "version": "0.1.0",
   "configSchema": {
