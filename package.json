@@ -1,6 +1,6 @@
 {
   "name": "snap-memory",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Compaction-proof topic snapshots for OpenClaw. No API key, no cloud, no vector DB.",
   "keywords": ["openclaw", "plugin", "memory", "context", "compaction", "agent"],
   "author": "furyfrog-agent",

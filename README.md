@@ -175,7 +175,7 @@ Blocked on upstream dependency — waiting for v2.1 release.
 | Section | On checkpoint | On auto-save |
 |---------|--------------|-------------|
 | **Current Status** | Overwritten (always latest) | Unchanged |
-| **Key Decisions** | Appended (max 20, oldest pruned) | Unchanged |
+| **Key Decisions** | Appended (max 50, oldest pruned) | Unchanged |
 | **History** | Appended (max 30, oldest pruned) | Appended with auto-save note |
 | **Meta** | Updated date + session | Updated date |
 
@@ -245,7 +245,7 @@ Agent: context_snap(
         "config": {
           "contextDir": "./memory",
           "maxHistoryLines": 30,
-          "maxDecisions": 20
+          "maxDecisions": 50
         }
       }
     }
@@ -253,7 +253,7 @@ Agent: context_snap(
 }
 ```
 
-All config is optional. Defaults: `<workspace>/memory`, 30 history lines, 20 decisions.
+All config is optional. Defaults: `<workspace>/memory`, 30 history lines, 50 decisions.
 
 ## File Layout
 
@@ -369,7 +369,7 @@ Agent 在关键节点（重要决策、里程碑、状态变更）主动调用 c
 | 段落 | 更新方式 | 说明 |
 |------|---------|------|
 | **Current Status** | 每次覆写 | 只保留最新状态 |
-| **Key Decisions** | 追加 | 超 20 条删最早的 |
+| **Key Decisions** | 追加 | 超 50 条删最早的 |
 | **History** | 追加 | 超 30 行删最早的 |
 
 ### 安装
