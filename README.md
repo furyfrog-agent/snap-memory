@@ -22,7 +22,9 @@ For long-running topics (projects, research threads, multi-day tasks), this mean
 
 ## How I Got Here
 
-Before building this plugin, I was doing everything manually: before each compaction, I'd tell my agent to "save context" and it would write a markdown file. After compaction, I'd remind it to read the file back. Every. Single. Time.
+**Phase 1: The manual era**
+
+Before OpenClaw had a plugin system, I was doing everything by hand: before each compaction, I'd tell my agent to "save context" and it would write a markdown file. After compaction, I'd remind it to read the file back. Every. Single. Time.
 
 It worked — the structured snapshot format (status/decisions/history) was genuinely useful for keeping the agent on track. But the manual workflow was painful:
 
@@ -30,9 +32,23 @@ It worked — the structured snapshot format (status/decisions/history) was genu
 - Forget to tell the agent to read the snapshot? It doesn't know it exists.
 - Running 10+ threads? Impossible to babysit all of them.
 
-So I turned the manual workflow into a plugin. The snapshot format stayed the same — it was already battle-tested. The difference: **4 lifecycle hooks make it fully automatic.** Save before compaction, inject after, save before reset. Zero manual steps.
+I wanted to automate this, but there was no way to hook into the agent's lifecycle. No event before compaction, no way to inject context into prompts, no plugin API at all. The agent was a black box.
 
-The experience went from "useful but fragile" to "just works."
+**Phase 2: OpenClaw introduces lifecycle hooks**
+
+Then [OpenClaw v2026.3.2–3.7](https://github.com/openclaw/openclaw/releases) rolled out a proper plugin system with **lifecycle hooks** — `before_compaction`, `before_prompt_build`, `before_reset`, and more. For the first time, third-party code could hook into the agent's critical moments:
+
+- **Before compaction** → save state before context gets compressed
+- **Before prompt build** → inject context into every LLM call
+- **Before reset** → save state before `/new` wipes everything
+
+This changed everything. The manual workflow I'd been doing for weeks could now be fully automated.
+
+**Phase 3: snap-memory**
+
+I turned the battle-tested manual workflow into a plugin. The snapshot format stayed exactly the same — it was already proven. The difference: **4 lifecycle hooks make it fully automatic.** Save before compaction, inject after, save before reset. Zero manual steps.
+
+The experience went from "useful but fragile" to "just works." What used to require constant vigilance across 10+ threads now runs silently in the background.
 
 ## The Solution
 
@@ -283,7 +299,9 @@ OpenClaw 的 agent 在两种情况下会丢失话题上下文：
 
 ### 心路历程
 
-做这个插件之前，我一直在手动管理上下文：每次 compaction 前，手动让 agent "存一下"，它会写一个 markdown 文件；compaction 后，再手动提醒它去读这个文件。每次都这样。
+**第一阶段：纯手动**
+
+在 OpenClaw 有插件系统之前，我一直在手动管理上下文：每次 compaction 前，手动让 agent "存一下"，它会写一个 markdown 文件；compaction 后，再手动提醒它去读这个文件。每次都这样。
 
 这种手动方式其实是 work 的 — 结构化的快照格式（状态/决策/时间线）确实能帮 agent 保持上下文。但痛点很明显：
 
@@ -291,9 +309,23 @@ OpenClaw 的 agent 在两种情况下会丢失话题上下文：
 - 忘了让 agent 读回快照？它不知道有这个文件。
 - 同时跑 10+ 个 thread？不可能每个都手动盯着。
 
-所以我把手动流程做成了插件。快照格式没变 — 已经验证过好用了。区别在于：**4 个 lifecycle hook 让一切全自动。** 压缩前保存，压缩后注入，重置前保存。零手动操作。
+我想自动化，但没办法 — 没有任何方式能 hook 进 agent 的生命周期。compaction 前没有事件，prompt 构建时没法注入，根本没有插件 API。
 
-体验从"能用但脆弱"变成了"不用管，自己跑"。
+**第二阶段：OpenClaw 引入 lifecycle hooks**
+
+[OpenClaw v2026.3.2–3.7](https://github.com/openclaw/openclaw/releases) 推出了完整的插件系统和 **lifecycle hooks** — `before_compaction`、`before_prompt_build`、`before_reset` 等。第三方代码第一次可以 hook 进 agent 的关键节点：
+
+- **压缩前** → 保存状态
+- **构建 prompt 前** → 注入上下文
+- **重置前** → 保存状态
+
+这彻底改变了局面。之前手动做了几周的流程，现在可以全自动化了。
+
+**第三阶段：snap-memory**
+
+我把验证过的手动流程做成了插件。快照格式没变 — 已经证明好用了。区别在于：**4 个 lifecycle hook 让一切全自动。** 压缩前保存，压缩后注入，重置前保存。零手动操作。
+
+体验从"能用但脆弱"变成了"不用管，自己跑"。之前 10+ 个 thread 需要时刻盯着，现在安静地在后台运行。
 
 ### 怎么解决的？
 
