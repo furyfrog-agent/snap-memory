@@ -20,6 +20,20 @@ OpenClaw agents lose topic context in two ways:
 
 For long-running topics (projects, research threads, multi-day tasks), this means your agent keeps forgetting what happened, what was decided, and what the current state is.
 
+## How I Got Here
+
+Before building this plugin, I was doing everything manually: before each compaction, I'd tell my agent to "save context" and it would write a markdown file. After compaction, I'd remind it to read the file back. Every. Single. Time.
+
+It worked — the structured snapshot format (status/decisions/history) was genuinely useful for keeping the agent on track. But the manual workflow was painful:
+
+- Forget to save before compaction? Context gone.
+- Forget to tell the agent to read the snapshot? It doesn't know it exists.
+- Running 10+ threads? Impossible to babysit all of them.
+
+So I turned the manual workflow into a plugin. The snapshot format stayed the same — it was already battle-tested. The difference: **4 lifecycle hooks make it fully automatic.** Save before compaction, inject after, save before reset. Zero manual steps.
+
+The experience went from "useful but fragile" to "just works."
+
 ## The Solution
 
 snap-memory saves **structured topic snapshots** to local markdown files. These snapshots:
@@ -266,6 +280,20 @@ OpenClaw 的 agent 在两种情况下会丢失话题上下文：
 2. **Session Reset（/new）** — 重置对话，所有内容清空
 
 对于持续数天的项目、研究、多轮讨论，agent 会反复忘记之前发生了什么、做了什么决定、当前进展到哪了。
+
+### 心路历程
+
+做这个插件之前，我一直在手动管理上下文：每次 compaction 前，手动让 agent "存一下"，它会写一个 markdown 文件；compaction 后，再手动提醒它去读这个文件。每次都这样。
+
+这种手动方式其实是 work 的 — 结构化的快照格式（状态/决策/时间线）确实能帮 agent 保持上下文。但痛点很明显：
+
+- 忘了在 compaction 前保存？上下文没了。
+- 忘了让 agent 读回快照？它不知道有这个文件。
+- 同时跑 10+ 个 thread？不可能每个都手动盯着。
+
+所以我把手动流程做成了插件。快照格式没变 — 已经验证过好用了。区别在于：**4 个 lifecycle hook 让一切全自动。** 压缩前保存，压缩后注入，重置前保存。零手动操作。
+
+体验从"能用但脆弱"变成了"不用管，自己跑"。
 
 ### 怎么解决的？
 
