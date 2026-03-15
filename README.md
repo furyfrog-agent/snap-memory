@@ -1,6 +1,13 @@
 # snap-memory
 
+[![npm version](https://img.shields.io/npm/v/snap-memory.svg)](https://www.npmjs.com/package/snap-memory)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 Compaction-proof topic snapshots for [OpenClaw](https://github.com/openclaw/openclaw). No API key, no cloud, no vector DB — just structured markdown that keeps your agent on track across sessions.
+
+```bash
+openclaw plugins install snap-memory
+```
 
 [中文说明](#中文说明)
 
@@ -308,9 +315,17 @@ Agent 在关键节点（重要决策、里程碑、状态变更）主动调用 c
 ### 安装
 
 ```bash
+# 从 npm 安装（推荐）
 openclaw plugins install snap-memory
+
+# 或本地开发模式
+openclaw plugins install -l ./snap-memory
+
+# 重启加载
 openclaw gateway restart
 ```
+
+npm: <https://www.npmjs.com/package/snap-memory>
 
 ### 安全措施
 
