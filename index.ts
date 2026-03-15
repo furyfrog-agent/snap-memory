@@ -10,7 +10,7 @@ interface SnapConfig {
 }
 
 const DEFAULT_MAX_HISTORY = 30;
-const DEFAULT_MAX_DECISIONS = 20;
+const DEFAULT_MAX_DECISIONS = 50;
 
 // ── Snap file parser/writer ─────────────────────────────────────────────
 
@@ -343,11 +343,11 @@ export default function register(api: any) {
         decisions: {
           type: "array",
           items: { type: "string" },
-          description: "New key decisions to append (format: 'YYYY-MM-DD: decision text')",
+          description: "Foundational choices that guide future work — architecture, tools, constraints, principles, confirmed specs. NOT progress updates, NOT experiments, NOT temporary fixes. Format: 'YYYY-MM-DD: decision text'",
         },
         historyLine: {
           type: "string",
-          description: "Single history line to append (format: 'YYYY-MM-DD: what happened')",
+          description: "Progress updates, experiments, milestones, status changes. Format: 'YYYY-MM-DD: what happened'",
         },
         sessionId: {
           type: "string",
